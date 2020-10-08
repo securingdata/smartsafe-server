@@ -21,11 +21,16 @@ Concerning logical attacks, a specific attention has been taken in order to impl
 
 The server part is intended to be loaded on a Java Card smart card. The SmartSafe Client project embeds a compiler and a loader in order to compile the server part in the Java Card CAP file format and load it in a Java Card smart card. See SmartSafe Client project for more details.
 
+## Hardware set-up
+This part is detailed in SmartSafe Client project.
+
 ## Road map
 The following features are already developed:
+
  - Protection of user commands by a password
  - Ability to create groups that contain entries that contain all the needed data for a password manager
  - Ability to read/write data in groups and entries
 
 The following features are intended to be developed:
+
  - Secure messaging between the Client and the Server in order to avoid Man-in-the-middle and replay attacks
