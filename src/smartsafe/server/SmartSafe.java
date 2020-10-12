@@ -14,7 +14,7 @@ import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
 
 public class SmartSafe extends Applet implements Constants {
-	private static final byte[] version = {'0', '.', '9', '.', '2'};
+	private static final byte[] version = {'0', '.', '9', '.', '3'};
 	private byte[] workingArray;
 	private OwnerPIN pin;
 	private boolean isInitialized;
@@ -52,6 +52,16 @@ public class SmartSafe extends Applet implements Constants {
 		Entry selectedEntry = (Entry) selection[ENTRY_INDEX];
 		
 		if (selectingApplet()) {
+			if (isInitialized) {
+				if (pin.getTriesRemaining() != 0)
+					Util.setShort(buffer, ZERO, (short) 0xCAFE);
+				else
+					Util.setShort(buffer, ZERO, (short) 0xDEAD);
+			}
+			else {
+				Util.setShort(buffer, ZERO, (short) 0xDECA);
+			}
+			apdu.setOutgoingAndSend(ZERO, (short) 2);
 			return;
 		}
 		
