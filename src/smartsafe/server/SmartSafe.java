@@ -14,7 +14,7 @@ import javacard.security.RandomData;
 import javacardx.crypto.Cipher;
 
 public class SmartSafe extends Applet implements Constants {
-	private static final byte[] version = {'0', '.', '9', '.', '3'};
+	private static final byte[] version = {'0', '.', '9', '.', '4'};
 	private byte[] workingArray;
 	private OwnerPIN pin;
 	private boolean isInitialized;
@@ -94,9 +94,15 @@ public class SmartSafe extends Applet implements Constants {
 				switch (ins) {
 					case INS_AUTHENTICATE:
 						lc = apdu.setIncomingAndReceive();
+						if (!isInitialized)
+							ISOException.throwIt(ISO7816.SW_WARNING_STATE_UNCHANGED);
 						if (pin.check(buffer, ISO7816.OFFSET_CDATA, (byte) lc))
 							return;
 						ISOException.throwIt((short) (0x63C0 + pin.getTriesRemaining()));
+						return;
+					case INS_GET_VERSION:
+						Util.arrayCopyNonAtomic(version, ZERO, buffer, ZERO, (short) version.length);
+						apdu.setOutgoingAndSend(ZERO, (short) version.length);
 						return;
 					default:
 						ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -114,10 +120,6 @@ public class SmartSafe extends Applet implements Constants {
 					case INS_AVAILABLE:
 						Util.setShort(buffer, ZERO, JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT));
 						apdu.setOutgoingAndSend(ZERO, (short) 2);
-						return;
-					case INS_GET_VERSION:
-						Util.arrayCopyNonAtomic(version, ZERO, buffer, ZERO, (short) version.length);
-						apdu.setOutgoingAndSend(ZERO, (short) version.length);
 						return;
 						
 					case INS_CREATE_GROUP:
