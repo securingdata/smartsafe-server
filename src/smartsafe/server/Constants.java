@@ -1,12 +1,16 @@
 package smartsafe.server;
 
 public interface Constants {
-	byte PIN_TRY_LIMIT    = (byte) 0x0A;
-	byte PIN_SIZE         = (byte) 0x10;
-	byte MAX_GROUPS       = (byte) 0x40;
+	byte PIN_TRY_LIMIT_OFFSET = (byte) 37;
+	byte PIN_SIZE_OFFSET      = (byte) 38;
+	byte PIN_VALUE_OFFSET     = (byte) 39;
+	byte MAX_GROUPS           = (byte) 0x40;
 
-	byte CLA_SECURED      = (byte) 0x80;
+	byte CLA_SECURED      = (byte) 0x84;
 	short SW_DATA_REMAINING = (short) 0x6310;
+	
+	short CLA_INS_INIT_UPDATE  = (short) 0x8050;
+	short CLA_INS_EXT_AUTH     = (short) 0x8482;
 	
 	byte INS_AUTHENTICATE = (byte) 0x01;
 	byte INS_CHANGE_PIN   = (byte) 0x02;

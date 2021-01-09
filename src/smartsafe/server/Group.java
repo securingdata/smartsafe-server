@@ -65,7 +65,7 @@ public class Group extends Identity {
 		}
 		ISOException.throwIt(ISO7816.SW_RECORD_NOT_FOUND);
 	}
-	public void listEntries(APDU apdu, byte[] buffer) {
+	public void listEntries(SCP03 scp, APDU apdu, byte[] buffer) {
 		byte i;
 		short offset = ZERO;
 		short len;
@@ -75,8 +75,6 @@ public class Group extends Identity {
 				offset += len;
 			}
 		}
-		apdu.setOutgoingAndSend(ZERO, offset);
-		if (i != entries.length)
-			ISOException.throwIt(SW_DATA_REMAINING);
+		scp.wrap(apdu, offset, i == entries.length ? ISO7816.SW_NO_ERROR : SW_DATA_REMAINING);
 	}
 }

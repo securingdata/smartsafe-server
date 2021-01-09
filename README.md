@@ -30,7 +30,8 @@ The following features are already developed:
  - Protection of user commands by a password
  - Ability to create groups that contain entries that contain all the needed data for a password manager
  - Ability to read/write data in groups and entries
+  - Secure messaging between the Client and the Server in order to avoid Man-in-the-middle and replay attacks
 
 The following features are intended to be developed:
 
- - Secure messaging between the Client and the Server in order to avoid Man-in-the-middle and replay attacks
+ - Editing Group name and other stuff
