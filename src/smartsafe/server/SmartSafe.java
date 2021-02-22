@@ -13,7 +13,7 @@ import javacard.security.KeyBuilder;
 import javacard.security.RandomData;
 
 public class SmartSafe extends Applet implements Constants {
-	private static final byte[] version = {'1', '.', '0', '.', '0'};
+	private static final byte[] version = {'1', '.', '0', '.', '1'};
 	private byte[] workingArray;
 	private SCP03 scp;
 	private OwnerPIN pin;
@@ -188,8 +188,7 @@ public class SmartSafe extends Applet implements Constants {
 					ISOException.throwIt(ISO7816.SW_FILE_NOT_FOUND);
 					return;
 				case INS_GET_STATS:
-					selectedGroup.getStats(apdu, buffer);
-					scp.wrap(apdu);
+					selectedGroup.getStats(scp, apdu, buffer);
 					return;
 					
 				case INS_ADD_ENTRY:

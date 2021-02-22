@@ -21,7 +21,7 @@ public class Group extends Identity {
 		}
 	}
 	
-	public void getStats(APDU apdu, byte[] buffer) {
+	public void getStats(SCP03 scp, APDU apdu, byte[] buffer) {
 		short nbEntries = 0;
 		for (byte i = 0; i < entries.length; i++) {
 			if (entries[i] != null)
@@ -29,7 +29,7 @@ public class Group extends Identity {
 		}
 		Util.setShort(buffer, ZERO, nbEntries);
 		Util.setShort(buffer, (short) 2, (short) entries.length);
-		apdu.setOutgoingAndSend(ZERO, (short) 4);
+		scp.wrap(apdu, (short) 4);
 	}
 	public Entry[] getEntries() {
 		return entries;
