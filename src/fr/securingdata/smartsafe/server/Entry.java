@@ -1,4 +1,4 @@
-package smartsafe.server;
+package fr.securingdata.smartsafe.server;
 
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
@@ -19,6 +19,7 @@ public class Entry extends Identity {
 				Util.arrayFillNonAtomic(tmp, ZERO, (short) tmp.length, ZERO);
 			}
 		}
+		data = null;
 	}
 	public short getNbData() {
 		return (short) data.length;

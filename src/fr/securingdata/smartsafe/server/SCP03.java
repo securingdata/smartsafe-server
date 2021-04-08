@@ -1,17 +1,11 @@
-package smartsafe.server;
+package fr.securingdata.smartsafe.server;
 
-import javacard.framework.APDU;
-import javacard.framework.ISO7816;
-import javacard.framework.ISOException;
-import javacard.framework.JCSystem;
-import javacard.framework.Util;
-import javacard.security.AESKey;
-import javacard.security.KeyBuilder;
-import javacard.security.RandomData;
-import javacard.security.Signature;
-import javacardx.crypto.Cipher;
+import javacard.framework.*;
+import javacard.security.*;
+import javacardx.crypto.*;
+import org.globalplatform.*;
 
-public class SCP03 implements Constants {
+public class SCP03 implements SecureChannel, Constants {
 	private static final byte STATUS_RESET         = (byte) 0x00;
 	private static final byte STATUS_INITIATED     = (byte) 0x01;
 	private static final byte STATUS_AUTHENTICATED = (byte) 0x02;
@@ -43,11 +37,11 @@ public class SCP03 implements Constants {
 		aesCMac = new AESCMac128();
 		aesCBC = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
 		
-		kMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, true);
-		kEnc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, true);
-		sMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, true);
-		sEnc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, true);
-		sRMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, true);
+		kMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+		kEnc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
+		sMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, false);
+		sEnc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, false);
+		sRMac = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT, KeyBuilder.LENGTH_AES_128, false);
 	}
 	
 	public void setKeys(byte[] buffer, short offset) {
@@ -55,20 +49,15 @@ public class SCP03 implements Constants {
 		kMac.setKey(buffer, (short) (offset + 16));
 	}
 	
-	public boolean isAuthenticated() {
+	private boolean isAuthenticated() {
 		return status[ZERO] == STATUS_AUTHENTICATED;
 	}
-	public void reset() {
-		status[ZERO] = STATUS_RESET;
-		Util.arrayFillNonAtomic(macChaining, ZERO, (short) macChaining.length, ZERO);
-		Util.arrayFillNonAtomic(encryptionCounter, ZERO, (short) encryptionCounter.length, ZERO);
-	}
-	public void error() {
-		reset();
+	private void error() {
+		resetSecurity();
 		ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
 	}
-	public void initUpdate(APDU apdu) {
-		reset();
+	private void initUpdate(APDU apdu) {
+		resetSecurity();
 		byte[] buffer = apdu.getBuffer();
 		if (apdu.setIncomingAndReceive() != 8)
 			ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
@@ -93,7 +82,7 @@ public class SCP03 implements Constants {
 		
 		status[ZERO] = STATUS_INITIATED;
 	}
-	public void externalAuth(APDU apdu) {
+	private void externalAuth(APDU apdu) {
 		if (status[ZERO] != STATUS_INITIATED)
 			ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
 		
@@ -111,67 +100,6 @@ public class SCP03 implements Constants {
 		checkMac(buffer, (short) 16);
 		
 		status[ZERO] = STATUS_AUTHENTICATED;
-	}
-	public short unwrap(APDU apdu) {
-		if (status[ZERO] != STATUS_AUTHENTICATED)
-			error();
-		byte[] buffer = apdu.getBuffer();
-		short lc = apdu.setIncomingAndReceive();
-		
-		checkMac(buffer, lc);
-		lc -= 8;
-		
-		incrementEncryptionCounter();
-		encryptionCounter[ZERO] = ZERO;
-		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT);
-		aesCBC.doFinal(encryptionCounter, ZERO, (short) 16, workingArray, ZERO);
-		aesCBC.init(sEnc, Cipher.MODE_DECRYPT, workingArray, ZERO, (short) 16);
-		aesCBC.doFinal(buffer, ISO7816.OFFSET_CDATA, lc, buffer, ISO7816.OFFSET_CDATA);
-		
-		
-		while(buffer[(short) (ISO7816.OFFSET_CDATA + lc - 1)] == ZERO)
-			lc--;
-		if (buffer[(short) (ISO7816.OFFSET_CDATA + lc - 1)] != (byte) 0x80)
-			error();
-		lc--;
-		buffer[(short) 4] = (byte) lc;
-		
-		return lc;
-	}
-	public void wrap(APDU apdu) {
-		wrap(apdu, ZERO);
-	}
-	public void wrap(APDU apdu, short len) {
-		wrap(apdu, len, ISO7816.SW_NO_ERROR);
-	}
-	public void wrap(APDU apdu, short len, short sw) {
-		if (status[ZERO] != STATUS_AUTHENTICATED)
-			error();
-		
-		byte[] buffer = apdu.getBuffer();
-		
-		//Add padding
-		buffer[len] = (byte) 0x80;
-		len++;
-		while (len % 16 != 0) {
-			buffer[len] = ZERO;
-			len++;
-		}
-		
-		incrementEncryptionCounter();
-		encryptionCounter[ZERO] = (byte) 0x80;
-		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT);
-		aesCBC.doFinal(encryptionCounter, ZERO, (short) 16, workingArray, ZERO);
-		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT, workingArray, ZERO, (short) 16);
-		aesCBC.doFinal(buffer, ZERO, len, buffer, ZERO);
-		Util.setShort(buffer, len, sw);
-		
-		aesCMac.init(sRMac, Signature.MODE_SIGN);
-		aesCMac.update(macChaining, ZERO, (short) 16);
-		aesCMac.sign(buffer, ZERO, (short) (len + 2), buffer, len);
-		
-		apdu.setOutgoingAndSend(ZERO, (short) (len + 8));
-		ISOException.throwIt(sw);
 	}
 	
 	private void incrementEncryptionCounter() {
@@ -222,5 +150,108 @@ public class SCP03 implements Constants {
 				workingArray[(short) (DERIVATION_DATA_OFFSET + 15)] = (byte) 0x01;
 				break;
 		}
+	}
+
+	/*
+	 * SecureChannel interface methods
+	 * */
+	public short decryptData(byte[] buffer, short offset, short len) throws ISOException {
+		ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);//Decryption with KDEK not supported
+		return 0;//Dead code only for the compiler
+	}
+	public short encryptData(byte[] buffer, short offset, short len) throws ArrayIndexOutOfBoundsException {
+		ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);//Encryption with KDEK not supported
+		return 0;//Dead code only for the compiler
+	}
+
+	public byte getSecurityLevel() {
+		if (isAuthenticated()) {//Only one mode is supported in External Authenticate command
+			return (byte) (AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION);
+		}
+		return NO_SECURITY_LEVEL;
+	}
+
+	public short processSecurity(APDU apdu) throws ISOException {
+		byte[] buffer = apdu.getBuffer();
+		
+		switch(Util.getShort(buffer, ISO7816.OFFSET_CLA)) {
+			case CLA_INS_INIT_UPDATE:
+				initUpdate(apdu);
+				break;
+			case CLA_INS_EXT_AUTH:
+				externalAuth(apdu);
+				break;
+			default:
+				ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
+		}
+		return 0;
+	}
+
+	public void resetSecurity() {
+		status[ZERO] = STATUS_RESET;
+		Util.arrayFillNonAtomic(macChaining, ZERO, (short) macChaining.length, ZERO);
+		Util.arrayFillNonAtomic(encryptionCounter, ZERO, (short) encryptionCounter.length, ZERO);
+	}
+
+	public short unwrap(byte[] buffer, short offset, short lc) throws ISOException {
+		//offset is always set to 0 in SmartSafe context
+		
+		if (status[ZERO] != STATUS_AUTHENTICATED)
+			error();
+		
+		//Remove MAC
+		checkMac(buffer, lc);
+		lc -= 8;
+		
+		//Decrypt data
+		incrementEncryptionCounter();
+		encryptionCounter[ZERO] = ZERO;
+		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT);
+		aesCBC.doFinal(encryptionCounter, ZERO, (short) 16, workingArray, ZERO);
+		aesCBC.init(sEnc, Cipher.MODE_DECRYPT, workingArray, ZERO, (short) 16);
+		aesCBC.doFinal(buffer, ISO7816.OFFSET_CDATA, lc, buffer, ISO7816.OFFSET_CDATA);
+		
+		//Remove padding
+		while(buffer[(short) (ISO7816.OFFSET_CDATA + lc - 1)] == ZERO)
+			lc--;
+		if (buffer[(short) (ISO7816.OFFSET_CDATA + lc - 1)] != (byte) 0x80)
+			error();
+		lc--;
+		buffer[(short) 4] = (byte) lc;
+		
+		return lc;
+	}
+
+	public short wrap(byte[] buffer, short offset, short len) throws ArrayIndexOutOfBoundsException, ISOException {
+		//offset is always set to 0 in SmartSafe context
+		
+		if (status[ZERO] != STATUS_AUTHENTICATED)
+			error();
+		
+		//Extract status word
+		len -= 2;
+		short sw = Util.getShort(buffer, len);
+		
+		//Add padding
+		buffer[len] = (byte) 0x80;
+		len++;
+		while (len % 16 != 0) {
+			buffer[len] = ZERO;
+			len++;
+		}
+		
+		incrementEncryptionCounter();
+		encryptionCounter[ZERO] = (byte) 0x80;
+		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT);
+		aesCBC.doFinal(encryptionCounter, ZERO, (short) 16, workingArray, ZERO);
+		aesCBC.init(sEnc, Cipher.MODE_ENCRYPT, workingArray, ZERO, (short) 16);
+		aesCBC.doFinal(buffer, ZERO, len, buffer, ZERO);
+		Util.setShort(buffer, len, sw);
+		
+		aesCMac.init(sRMac, Signature.MODE_SIGN);
+		aesCMac.update(macChaining, ZERO, (short) 16);
+		aesCMac.sign(buffer, ZERO, (short) (len + 2), buffer, len);
+		
+		return (short) (len + 8);
 	}
 }

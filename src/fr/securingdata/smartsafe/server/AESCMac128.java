@@ -1,4 +1,4 @@
-package smartsafe.server;
+package fr.securingdata.smartsafe.server;
 
 import javacard.framework.*;
 import javacard.security.*;

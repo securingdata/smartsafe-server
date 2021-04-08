@@ -1,17 +1,19 @@
-package smartsafe.server;
+package fr.securingdata.smartsafe.server;
 
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 
 public abstract class Identity implements Constants {
+	Identity next;
 	protected byte[] identifier;
 	
-	protected Identity() {
-		
-	}
+	protected Identity() {}
 	
 	public void clear() {
 		Util.arrayFillNonAtomic(identifier, ZERO, (short) identifier.length, ZERO);
+		identifier = null;
+		next = null;
+		JCSystem.requestObjectDeletion();
 	}
 	public byte getIdentifier(byte[] out, short outOffset) {
 		byte i;
