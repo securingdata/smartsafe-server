@@ -5,7 +5,7 @@ import javacard.security.*;
 import javacardx.crypto.*;
 import org.globalplatform.*;
 
-public class SCP03 implements SecureChannel, Constants {
+public class SCP03 implements /*SecureChannel,*/ Constants {
 	private static final byte STATUS_RESET         = (byte) 0x00;
 	private static final byte STATUS_INITIATED     = (byte) 0x01;
 	private static final byte STATUS_AUTHENTICATED = (byte) 0x02;
@@ -166,9 +166,9 @@ public class SCP03 implements SecureChannel, Constants {
 
 	public byte getSecurityLevel() {
 		if (isAuthenticated()) {//Only one mode is supported in External Authenticate command
-			return (byte) (AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION);
+			return (byte) 0xB3;//(AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION);
 		}
-		return NO_SECURITY_LEVEL;
+		return ZERO;//NO_SECURITY_LEVEL;
 	}
 
 	public short processSecurity(APDU apdu) throws ISOException {

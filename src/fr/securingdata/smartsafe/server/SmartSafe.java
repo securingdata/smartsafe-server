@@ -5,7 +5,7 @@ import org.globalplatform.*;
 
 public class SmartSafe extends Applet implements Constants {
 	private static final byte[] version = {'2', '.', '0', '.', '0'};
-	private SecureChannel scp;
+	private SCP03 scp;
 	private OwnerPIN pin;
 	
 	private List groups;
