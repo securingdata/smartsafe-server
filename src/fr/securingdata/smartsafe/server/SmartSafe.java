@@ -1,11 +1,16 @@
 package fr.securingdata.smartsafe.server;
 
-import javacard.framework.*;
-import org.globalplatform.*;
+import javacard.framework.APDU;
+import javacard.framework.Applet;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.OwnerPIN;
+import javacard.framework.Util;
 
 public class SmartSafe extends Applet implements Constants {
-	private static final byte[] version = {'2', '.', '0', '.', '0'};
-	private SecureChannel scp;
+	private static final byte[] version = {'2', '.', '0', '.', '1'};
+	private SCP03 scp;
 	private OwnerPIN pin;
 	
 	private List groups;
@@ -111,7 +116,7 @@ public class SmartSafe extends Applet implements Constants {
 			 * See GlobalPlatform specifications.
 			 * */
 			case CLA_INS_INIT_UPDATE:
-				scp.processSecurity(apdu);
+				apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, scp.processSecurity(apdu));
 				return;
 			
 			/**
@@ -521,9 +526,12 @@ public class SmartSafe extends Applet implements Constants {
 	 * buffer: keys followed by the PTL followed by the PIN size and finally the PIN value
 	 * */
 	private void changePin(byte[] buffer, short lc) {
-		if (scp instanceof SCP03)
-			((SCP03) scp).setKeys(buffer, ISO7816.OFFSET_CDATA);
-		pin = new OwnerPIN(buffer[PIN_TRY_LIMIT_OFFSET], buffer[PIN_SIZE_OFFSET]);
+		//New PIN Object created outside transaction to avoid issues
+		OwnerPIN newPin = new OwnerPIN(buffer[PIN_TRY_LIMIT_OFFSET], buffer[PIN_SIZE_OFFSET]);
+		JCSystem.beginTransaction();
+		scp.setKeys(buffer, ISO7816.OFFSET_CDATA);
+		pin = newPin;
 		pin.update(buffer, PIN_VALUE_OFFSET, (byte) (5 + lc - PIN_VALUE_OFFSET));
+		JCSystem.commitTransaction();
 	}
 }

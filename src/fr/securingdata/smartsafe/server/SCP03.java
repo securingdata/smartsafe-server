@@ -1,11 +1,17 @@
 package fr.securingdata.smartsafe.server;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
-import org.globalplatform.*;
+import javacard.framework.APDU;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.AESKey;
+import javacard.security.KeyBuilder;
+import javacard.security.RandomData;
+import javacard.security.Signature;
+import javacardx.crypto.Cipher;
 
-public class SCP03 implements SecureChannel, Constants {
+public class SCP03 implements Constants {
 	private static final byte STATUS_RESET         = (byte) 0x00;
 	private static final byte STATUS_INITIATED     = (byte) 0x01;
 	private static final byte STATUS_AUTHENTICATED = (byte) 0x02;
@@ -72,13 +78,12 @@ public class SCP03 implements SecureChannel, Constants {
 		aesCMac.sign(workingArray, DERIVATION_DATA_OFFSET, (short) 32, workingArray, ZERO);
 		
 		//Response
-		Util.arrayFillNonAtomic(buffer, ZERO, (short) 10, ZERO);
-		buffer[(short) 10] = ZERO;//KVN
-		buffer[(short) 11] = (byte) 0x03;//SCP
-		buffer[(short) 12] = (byte) 0x60;//i
-		Util.arrayCopyNonAtomic(workingArray, DERIVATION_DATA_CARD_CHALL_OFFSET, buffer, (short) 13, (byte) 8);
-		Util.arrayCopyNonAtomic(workingArray, ZERO/*Card crypto offset*/, buffer, (short) 21, (byte) 8);
-		apdu.setOutgoingAndSend(ZERO, (short) 29);
+		Util.arrayFillNonAtomic(buffer, ISO7816.OFFSET_CDATA, (short) 10, ZERO);
+		buffer[(short) (ISO7816.OFFSET_CDATA + 10)] = ZERO;//KVN
+		buffer[(short) (ISO7816.OFFSET_CDATA + 11)] = (byte) 0x03;//SCP
+		buffer[(short) (ISO7816.OFFSET_CDATA + 12)] = (byte) 0x60;//i
+		Util.arrayCopyNonAtomic(workingArray, DERIVATION_DATA_CARD_CHALL_OFFSET, buffer, (short) (ISO7816.OFFSET_CDATA + 13), (byte) 8);
+		Util.arrayCopyNonAtomic(workingArray, ZERO/*Card crypto offset*/, buffer, (short) (ISO7816.OFFSET_CDATA + 21), (byte) 8);
 		
 		status[ZERO] = STATUS_INITIATED;
 	}
@@ -166,9 +171,9 @@ public class SCP03 implements SecureChannel, Constants {
 
 	public byte getSecurityLevel() {
 		if (isAuthenticated()) {//Only one mode is supported in External Authenticate command
-			return (byte) (AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION);
+			return (byte) 0xB3;//(AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION);
 		}
-		return NO_SECURITY_LEVEL;
+		return ZERO;//NO_SECURITY_LEVEL;
 	}
 
 	public short processSecurity(APDU apdu) throws ISOException {
@@ -177,7 +182,7 @@ public class SCP03 implements SecureChannel, Constants {
 		switch(Util.getShort(buffer, ISO7816.OFFSET_CLA)) {
 			case CLA_INS_INIT_UPDATE:
 				initUpdate(apdu);
-				break;
+				return (short) 29;
 			case CLA_INS_EXT_AUTH:
 				externalAuth(apdu);
 				break;
