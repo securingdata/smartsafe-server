@@ -3,13 +3,13 @@
 The SmartSafe project aims at providing a solution to securely store your passwords.
 This password manager is split in several repositories: see the corresponding repository to have a complete description of each one.
 
-The SmartSafe Server part consists in a Java Card application that securely store data. Access in write and read mode are protected by a user password. Access to administration parts (for instance, loading the application) is protected by an administration password, distinct from the user password.
+The SmartSafe Server part consists in a Java Card application that securely store data. Access in write and read mode are protected by a user password.
 
 ## Security assumptions
 
 The use of a Java Card smart card brings strong security elements.
 
-The loading of an application is controlled by a key (in our case this key can be retrieved by sending a password to the application). An attacker cannot load a malicious application that could successfully dump the data owned by the SmartSafe server application.
+The loading of an application is controlled by a user key and only code signed by Securing Data key can be loaded. An attacker cannot load a malicious application that could successfully dump the data owned by the SmartSafe server application.
 
 The overall attack area is limited to the Card Manager (that is supposed to have been evaluated) and the commands of the SmartSafe server application. Two types of attack can be considered : physical attacks and logical attacks.
 
@@ -19,7 +19,12 @@ Concerning logical attacks, a specific attention has been taken in order to impl
 
 ## Quick start
 
-The server part is intended to be loaded on a Java Card smart card. The SmartSafe Client project embeds a compiler and a loader in order to compile the server part in the Java Card CAP file format and load it in a Java Card smart card. See SmartSafe Client project for more details.
+The server part is intended to be loaded on a Java Card smart card. Use the standard Java Card SDK provided by Oracle.
+
+The package is intended to be compiled with AID: "53 6D 61 72 74 53 61 66 65" (SmartSafe).
+The applet should have the following AID: "53 6D 61 72 74 53 61 66 65 41 70 70" (SmartSafeApp).
+
+Concerning loading, both package and applet should be loaded under supplementary security domain with AID: "53 65 63 75 72 69 6E 67 44 61 74 61 55 73 65 72" (SecuringDataUser) in order to be fully compatible with SmartSafe Client.
 
 ## Hardware set-up
 This part is detailed in SmartSafe Client project.
@@ -35,4 +40,5 @@ The following features are already developed:
 
 The following features are intended to be developed:
 
+ - FIDO2 support
  - To be announced...

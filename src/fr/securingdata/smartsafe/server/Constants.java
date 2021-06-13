@@ -1,9 +1,22 @@
 package fr.securingdata.smartsafe.server;
 
 public interface Constants {
-	byte PIN_TRY_LIMIT_OFFSET = (byte) 37;
-	byte PIN_SIZE_OFFSET      = (byte) 38;
-	byte PIN_VALUE_OFFSET     = (byte) 39;
+	byte STATUS_NO = (byte) 0;
+	byte STATUS_ON = (byte) 1;
+	
+	short STATUS_SIZE       = (short) 1;
+	short KEYS_SIZE         = (short) 32;
+	short PTL_SIZE          = (short) 1;
+	short PIN_LEN_SIZE      = (short) 1;
+	short PIN_DATA_MAX_SIZE = (short) 232;
+	
+	short TRNS_BUFF_STATUS_OFFSET  = (short) 0;
+	short TRNS_BUFF_DATA_OFFSET    = (short) TRNS_BUFF_STATUS_OFFSET + STATUS_SIZE;
+	short TRNS_BUFF_KEYS_OFFSET    = (short) TRNS_BUFF_DATA_OFFSET;
+	short TRNS_BUFF_PTL_OFFSET     = (short) TRNS_BUFF_KEYS_OFFSET + KEYS_SIZE;
+	short TRNS_BUFF_PIN_LEN_OFFSET = (short) TRNS_BUFF_PTL_OFFSET + PIN_LEN_SIZE;
+	short TRNS_BUFF_PIN_VAL_OFFSET = (short) TRNS_BUFF_PIN_LEN_OFFSET + PIN_LEN_SIZE;
+	short TRNS_BUFF_MAX_SIZE       = (short) STATUS_SIZE + PIN_DATA_MAX_SIZE;
 
 	byte CLA_SECURED      = (byte) 0x84;
 	
@@ -17,6 +30,7 @@ public interface Constants {
 	short CLA_SEC_INS_CHANGE_PIN   = (short) 0x8402;
 	short CLA_SEC_INS_AVAILABLE    = (short) 0x8403;
 	short CLA_INS_GET_VERSION      = (short) 0x0004;//Executed at any time, no SM
+	short CLA_INS_MANAGE_TRNS      = (short) 0x0005;//Executed at any time, no SM
 	
 	/* Group related command do not handle sensitive data, no SM */
 	short CLA_INS_CREATE_GROUP = (short) 0x0011;

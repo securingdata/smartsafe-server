@@ -7,11 +7,14 @@ import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.OwnerPIN;
 import javacard.framework.Util;
+import javacard.security.RandomData;
 
 public class SmartSafe extends Applet implements Constants {
-	private static final byte[] version = {'2', '.', '0', '.', '1'};
+	private static final byte[] version = {'2', '.', '1', '.', '0'};
 	private SCP03 scp;
 	private OwnerPIN pin;
+	private RandomData random;
+	private byte[] transactionBuffer;
 	
 	private List groups;
 	private Object[] selection;
@@ -23,6 +26,8 @@ public class SmartSafe extends Applet implements Constants {
 	public SmartSafe() {
 		scp = new SCP03();
 		groups = new List();
+		transactionBuffer = new byte[TRNS_BUFF_MAX_SIZE];
+		random = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
 		selection = JCSystem.makeTransientObjectArray((short) 2, JCSystem.CLEAR_ON_RESET);
 	}
 	
@@ -42,6 +47,7 @@ public class SmartSafe extends Applet implements Constants {
 		 * 1. Select                                 *
 		 * 2. Get Version                            *
 		 * 3. Initialize PIN                         *
+		 * 4. Manage Transaction                     *
 		 *                                           *
 		 * * * * * * * * * * * * * * * * * * * * * * */
 		
@@ -90,7 +96,35 @@ public class SmartSafe extends Applet implements Constants {
 			lc = apdu.setIncomingAndReceive();
 			if (p1 != 0 || p2 != 0)
 				ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
-			changePin(buffer, lc);
+			if (lc > PIN_DATA_MAX_SIZE)
+				ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+			initChangePin(buffer, lc);
+			commitChangePin();
+			return;
+		}
+		
+		/**
+		 * Manage and return the Transaction status related to PIN update.
+		 * 
+		 * input: p1 (only if a transaction is on progress)
+		 * 			00 -> do nothing
+		 * 			01 -> abort
+		 * 			02 -> commit
+		 * 
+		 * output: the transaction status
+		 * 			00 -> no transaction
+		 * 			01 -> a transaction is on-going
+		 * */
+		if (clains == CLA_INS_MANAGE_TRNS) {
+			if (transactionBuffer[TRNS_BUFF_STATUS_OFFSET] == STATUS_ON) {
+				if (p1 == (byte) 1)
+					abortChangePin();
+				else if (p1 == (byte) 2)
+					commitChangePin();
+			}
+			
+			buffer[0] = transactionBuffer[TRNS_BUFF_STATUS_OFFSET];
+			apdu.setOutgoingAndSend(ZERO, (short) 1);
 			return;
 		}
 		
@@ -216,7 +250,9 @@ public class SmartSafe extends Applet implements Constants {
 			case CLA_SEC_INS_CHANGE_PIN:
 				if (p1 != 0 || p2 != 0)
 					ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
-				changePin(buffer, lc);
+				if (lc > PIN_DATA_MAX_SIZE)
+					ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+				initChangePin(buffer, lc);
 				wrap(apdu, buffer, ZERO, ISO7816.SW_NO_ERROR);
 				return;
 			
@@ -520,18 +556,29 @@ public class SmartSafe extends Applet implements Constants {
 		ISOException.throwIt(sw);
 	}
 	
-	/**
-	 * Change the user PIN value and the master SCP03 keys.
-	 * 
-	 * buffer: keys followed by the PTL followed by the PIN size and finally the PIN value
-	 * */
-	private void changePin(byte[] buffer, short lc) {
-		//New PIN Object created outside transaction to avoid issues
-		OwnerPIN newPin = new OwnerPIN(buffer[PIN_TRY_LIMIT_OFFSET], buffer[PIN_SIZE_OFFSET]);
+	private void initChangePin(byte[] buffer, short lc) {
+		if (transactionBuffer[TRNS_BUFF_STATUS_OFFSET] != STATUS_NO)
+			ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
 		JCSystem.beginTransaction();
-		scp.setKeys(buffer, ISO7816.OFFSET_CDATA);
-		pin = newPin;
-		pin.update(buffer, PIN_VALUE_OFFSET, (byte) (5 + lc - PIN_VALUE_OFFSET));
+		transactionBuffer[TRNS_BUFF_STATUS_OFFSET] = STATUS_ON;
+		Util.arrayCopy(buffer, ISO7816.OFFSET_CDATA, transactionBuffer, TRNS_BUFF_DATA_OFFSET, lc);
 		JCSystem.commitTransaction();
+	}
+	private void commitChangePin() {
+		if (transactionBuffer[TRNS_BUFF_STATUS_OFFSET] != STATUS_ON)
+			ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+		byte pinLen = transactionBuffer[TRNS_BUFF_PIN_LEN_OFFSET];
+		OwnerPIN newPin = new OwnerPIN(transactionBuffer[TRNS_BUFF_PTL_OFFSET], pinLen);
+		JCSystem.beginTransaction();
+		scp.setKeys(transactionBuffer, TRNS_BUFF_KEYS_OFFSET);
+		pin = newPin;
+		pin.update(transactionBuffer, TRNS_BUFF_PIN_VAL_OFFSET, pinLen);
+		abortChangePin();
+		JCSystem.commitTransaction();
+	}
+	private void abortChangePin() {
+		//No transaction
+		transactionBuffer[TRNS_BUFF_STATUS_OFFSET] = STATUS_NO;
+		random.generateData(transactionBuffer, TRNS_BUFF_KEYS_OFFSET, PIN_DATA_MAX_SIZE);
 	}
 }
